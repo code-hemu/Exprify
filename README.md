@@ -3,6 +3,20 @@
 [![Exprify Social Banner](https://raw.githubusercontent.com/code-hemu/Exprify/refs/heads/main/src/assets/capture.jpg)](https://github.com/code-hemu/Exprify)
 
 Exprify is a JavaScript expression parser and evaluator supporting math operations, variables, and custom functions.
+
+## 🔧 Manual Build
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/code-hemu/Exprify.git
+   cd Exprify
+
+2. Install dependencies and build:
+   ```bash
+   npm install
+   npm run build
+   
+The output will be generated in a dist/ folder.
+
 ## 🚀 Quick Start
 ### Node.js / ES Modules
 ```Javascript
