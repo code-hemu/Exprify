@@ -68,6 +68,32 @@ expr.evaluate("#max(10, 25, 7)");
 expr.evaluate("#min(10, 25, 7)"); 
 // → 7
 ```
+## 🤿 Other Examples
+```Javascript
+//Create a new Exprify object with Exprify class
+const expr = new Exprify();
+
+//Simple Expression evaluation
+console.log(expr.evaluate(`25+5*2`)); // → 35
+
+//Nested expression evaluation
+console.log(expr.evaluate(`((52/8+2)+56*((25/2)*4+(8-2)))*2`)); // → 6289
+
+//BigInt Expression evaluation
+console.log(expr.evaluate(`11n ^2n`)); // → 121n 
+
+//String concatenation: '+' Operator behaves as concatenation operator
+console.log(expr.evaluate(`"Hello " + "World"`)); // → "Hello World"
+
+//Invalid Expression: One operand is a string and another one is number
+console.log(expr.evaluate(`"45" + 5`)); // → datatype error
+
+//Invalid Expression: One operand is a number and another one is boolean
+console.log(expr.evaluate(`45 * true`)); // → datatype error
+
+//Invalid Expression: unclosed quoted text
+console.log(expr.evaluate(`"Hello World `)); // → unclosed error
+```
 
 ## 🧩 Built-in Functions
 Exprify has some built-in functions, here is a complete list
