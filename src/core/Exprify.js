@@ -22,22 +22,18 @@ class ViewPoint {
         this.operator_precedence = mathOperations.operator_precedence;
     }
 
-    // ================= VARIABLES =================
     setVariable(name, value) {
         this.variablesDB[name] = value;
     }
 
-    // ================= FUNCTIONS =================
     addFunction(name, fn) {
         this.func_DB_extrnl[name] = fn;
     }
 
-    // ================= TYPE CONVERTER =================
     stringToJS(str) {
         return stringToJS.call(this, str, this.variablesDB);
     }
 
-    // ================= MAIN EVALUATOR =================
     evaluate(expr) {
 
         if (typeof expr !== "string") {
