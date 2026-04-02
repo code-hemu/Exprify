@@ -26,5 +26,5 @@ Contributions are welcome!
 4. Push and open a PR 🚀
 
 ## ⭐ Support
-If you like [this project](https://github.com/code-hemu/Exprify), give it a ⭐ on GitHub! This project is originally made by [Nirmal Paul](https://github.com/nirmalpaul383/) (N Paul) and replicate by [ViewPoint](https://github.com/nirmalpaul383/ViewPoint). (N Paul) [youtube](https://www.youtube.com/channel/UCY6JY8bTlR7hZEvhy6Pldxg/), [facebook](https://facebook.com/a.new.way.Technical/) page.
+If you like [this project](https://github.com/code-hemu/Exprify), give it a ⭐ on GitHub! This project is originally made by [Nirmal Paul](https://github.com/nirmalpaul383/) (N Paul) and replicate by [ViewPoint](https://github.com/nirmalpaul383/ViewPoint). The Main Developer's (N Paul) [youtube page](https://www.youtube.com/channel/UCY6JY8bTlR7hZEvhy6Pldxg/), [facebook page](https://facebook.com/a.new.way.Technical/).
 
