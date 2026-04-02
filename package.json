@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "description": "A powerful math expression parser and evaluator with runtime data-type checking",
   "type": "module",
-  "main": "dist/viewpoint.cjs.js",
-  "module": "dist/viewpoint.esm.js",
-  "browser": "dist/viewpoint.umd.js",
+  "main": "dist/exprify.cjs.js",
+  "module": "dist/exprify.esm.js",
+  "browser": "dist/exprify.js",
+  "unpkg": "dist/exprify.min.js",
   "scripts": {
     "start": "node src/index.js",
     "clean": "rimraf dist",
