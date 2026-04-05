@@ -1,2 +1,2 @@
-import Exprify from "./core/exprify.js";
+import Exprify from "./core/Exprify.js";
 export default Exprify;
