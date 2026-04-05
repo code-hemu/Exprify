@@ -90,6 +90,17 @@ console.log(expr.evaluate("double(5) + 3"));
 // 13
 ```
 
+### Inline function definitions
+
+You can also define functions directly inside Exprify expressions.
+
+```js
+expr.evaluate("hyp(a, b) = sqrt(a ^ 2 + b ^ 2)");
+
+console.log(expr.evaluate("hyp(3, 4)"));
+// 5
+```
+
 ## Supported Features
 
 ### Arithmetic and precedence

@@ -65,7 +65,7 @@ export function buildAST(tokens) {
       case "Identifier":
         return { type: "Identifier", name: token.name };
       
-      case "Function": // 🔥 ADD THIS
+      case "Function":
         return {
           type: "Identifier",
           name: token.name
@@ -469,6 +469,29 @@ export function buildAST(tokens) {
       match("Operator", "/=")
     ) {
       const operator = tokens[current - 1].value;
+
+      if (left.type === "CallExpression") {
+        const isFunctionTarget =
+          left.callee?.type === "Identifier" &&
+          left.arguments.every((arg) => arg.type === "Identifier");
+
+        if (!isFunctionTarget) {
+          throw new Error("Invalid function definition");
+        }
+
+        const right = parseAssignment();
+
+        return {
+          type: "FunctionAssignmentExpression",
+          operator,
+          left: {
+            type: "Identifier",
+            name: left.callee.name
+          },
+          params: left.arguments.map((arg) => arg.name),
+          right
+        };
+      }
 
       if (
         left.type !== "Identifier" &&

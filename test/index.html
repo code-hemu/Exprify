@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Exprify - by CodeHemu</title>
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --panel: rgba(255, 252, 247, 0.9);
+      --panel-strong: #fffaf2;
+      --ink: #1f1d1a;
+      --muted: #73685a;
+      --line: rgba(70, 54, 34, 0.14);
+      --accent: #c45c2b;
+      --accent-deep: #8a3417;
+      --accent-soft: #ffd8bd;
+      --good: #1f7a50;
+      --bad: #b83333;
+      --shadow: 0 24px 70px rgba(91, 56, 26, 0.15);
+      --mono: "IBM Plex Mono", "Cascadia Code", Consolas, monospace;
+      --display: Georgia, "Times New Roman", serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--mono);
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(255, 209, 168, 0.7), transparent 32%),
+        radial-gradient(circle at top right, rgba(196, 92, 43, 0.18), transparent 28%),
+        linear-gradient(180deg, #fbf6ed 0%, #f2eadc 100%);
+    }
+
+    .page {
+      width: min(1200px, calc(100% - 32px));
+      margin: 24px auto;
+      display: grid;
+      gap: 18px;
+    }
+
+    .hero,
+    .workspace,
+    .inspector {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .hero {
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -30px -50px auto;
+      width: 220px;
+      height: 220px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(196, 92, 43, 0.22), transparent 70%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent-deep);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 14px 0 10px;
+      font-family: var(--display);
+      font-size: clamp(2rem, 4vw, 3.8rem);
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 760px;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    .chip-row {
+      margin-top: 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .chip {
+      border: 1px solid rgba(196, 92, 43, 0.18);
+      background: rgba(255, 255, 255, 0.65);
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 12px;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+      overflow: hidden;
+    }
+
+    .pane {
+      padding: 20px;
+    }
+
+    .pane + .pane {
+      border-left: 1px solid var(--line);
+    }
+
+    .label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 420px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel-strong);
+      color: var(--ink);
+      padding: 18px;
+      font: 14px/1.7 var(--mono);
+      outline: none;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    }
+
+    textarea:focus {
+      border-color: rgba(196, 92, 43, 0.45);
+      box-shadow: 0 0 0 4px rgba(196, 92, 43, 0.1);
+    }
+
+    .actions {
+      margin-top: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 11px 16px;
+      font: 600 13px/1 var(--mono);
+      cursor: pointer;
+      transition: transform 120ms ease, opacity 120ms ease, background 120ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    .primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .ghost {
+      background: rgba(255, 255, 255, 0.75);
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+
+    .sample-list {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .sample {
+      text-align: left;
+      border: 1px solid var(--line);
+      background: var(--panel-strong);
+      color: var(--ink);
+      border-radius: 18px;
+      padding: 14px;
+    }
+
+    .sample strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+
+    .sample span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-line;
+    }
+
+    .results {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel-strong);
+      overflow: hidden;
+    }
+
+    .result-row {
+      display: grid;
+      grid-template-columns: 56px minmax(0, 1fr);
+      gap: 12px;
+      padding: 12px 14px;
+      border-top: 1px solid rgba(70, 54, 34, 0.08);
+      cursor: pointer;
+    }
+
+    .result-row:first-child {
+      border-top: 0;
+    }
+
+    .result-row.active {
+      background: rgba(255, 216, 189, 0.4);
+    }
+
+    .line-no {
+      color: var(--muted);
+      font-size: 12px;
+      padding-top: 2px;
+    }
+
+    .expr-line,
+    .result-line {
+      word-break: break-word;
+      white-space: pre-wrap;
+      line-height: 1.55;
+      font-size: 13px;
+    }
+
+    .result-line {
+      margin-top: 6px;
+    }
+
+    .ok {
+      color: var(--good);
+    }
+
+    .error {
+      color: var(--bad);
+    }
+
+    .empty {
+      padding: 18px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .inspector {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      overflow: hidden;
+    }
+
+    .panel-block {
+      padding: 20px;
+    }
+
+    .panel-block + .panel-block {
+      border-left: 1px solid var(--line);
+    }
+
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid var(--line);
+      background: var(--panel-strong);
+      border-radius: 18px;
+      padding: 16px;
+      min-height: 240px;
+      font: 12px/1.7 var(--mono);
+      color: var(--ink);
+    }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 960px) {
+      .workspace,
+      .inspector {
+        grid-template-columns: 1fr;
+      }
+
+      .pane + .pane,
+      .panel-block + .panel-block {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+      }
+
+      textarea {
+        min-height: 320px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <span class="eyebrow">Exprify Playground</span>
+      <h1>Exprify Notepad</h1>
+      <p>
+        Write one expression per line, run the whole note with shared state, and inspect tokens plus AST for the selected line.
+        Variables and inline functions stay available to the lines that follow.
+      </p>
+      <div class="chip-row">
+        <span class="chip">Inline functions</span>
+        <span class="chip">Units</span>
+        <span class="chip">Matrices</span>
+        <span class="chip">Complex numbers</span>
+        <span class="chip">Token + AST inspector</span>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <div class="pane">
+        <div class="label">
+          <span>Notebook</span>
+          <span>One expression per line</span>
+        </div>
+        <textarea id="editor" spellcheck="false">x = 12
+y = 5
+hyp(a, b) = sqrt(a ^ 2 + b ^ 2)
+hyp(3, 4)
+5 cm + 2 inch
+det([-1, 2; 3, 1])
+9 / 3 + 2i
+x * y + hyp(6, 8)</textarea>
+        <div class="actions">
+          <button class="primary" id="runBtn">Run Notepad</button>
+          <button class="ghost" id="clearBtn">Clear</button>
+          <button class="ghost" id="sampleFunctions">Load Function Demo</button>
+          <button class="ghost" id="sampleUnits">Load Unit Demo</button>
+          <button class="ghost" id="sampleMatrices">Load Matrix Demo</button>
+        </div>
+      </div>
+
+      <div class="pane">
+        <div class="label">
+          <span>Results</span>
+          <span id="summary">Ready</span>
+        </div>
+        <div class="sample-list">
+          <button class="sample" data-sample="x = 12&#10;y = 5&#10;h(a, b) = sqrt(a ^ 2 + b ^ 2)&#10;h(5, 12)&#10;x * y + h(3, 4)">
+            <strong>Custom Functions</strong>
+            <span>Define reusable formulas inline and use them later in the same note.</span>
+          </button>
+          <button class="sample" data-sample="2 inch to cm&#10;5 cm + 2 inch&#10;5cm + 0.2 m in inch">
+            <strong>Unit Math</strong>
+            <span>Mix unit conversion with arithmetic in the same session.</span>
+          </button>
+          <button class="sample" data-sample="m = [1, 2; 3, 4]&#10;det(m)&#10;m[2, 1]&#10;m[1:2, 2]">
+            <strong>Matrices</strong>
+            <span>Create, index, slice, and evaluate matrix expressions quickly.</span>
+          </button>
+        </div>
+        <div class="results" id="results">
+          <div class="empty">Run the notebook to see results line by line.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="inspector">
+      <div class="panel-block">
+        <div class="label">
+          <span>Tokens</span>
+          <span id="tokenTitle">Selected line</span>
+        </div>
+        <pre id="tokensView">Select a result line to inspect its tokens.</pre>
+      </div>
+      <div class="panel-block">
+        <div class="label">
+          <span>AST</span>
+          <span id="astTitle">Selected line</span>
+        </div>
+        <pre id="astView">Select a result line to inspect its AST.</pre>
+        <div class="footer-note">
+          Blank lines are ignored. Comment lines starting with <code>#</code> or <code>//</code> are skipped in the notebook view.
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="../dist/exprify.min.js"></script>
+  <script>
+    const editor = document.getElementById("editor");
+    const runBtn = document.getElementById("runBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const resultsEl = document.getElementById("results");
+    const summaryEl = document.getElementById("summary");
+    const tokensView = document.getElementById("tokensView");
+    const astView = document.getElementById("astView");
+    const tokenTitle = document.getElementById("tokenTitle");
+    const astTitle = document.getElementById("astTitle");
+
+    const sampleFunctions = document.getElementById("sampleFunctions");
+    const sampleUnits = document.getElementById("sampleUnits");
+    const sampleMatrices = document.getElementById("sampleMatrices");
+
+    let lastRun = [];
+
+    function toText(value) {
+      if (typeof value === "function") {
+        return "[Function registered]";
+      }
+
+      if (typeof value === "string") {
+        return value;
+      }
+
+      if (typeof value === "bigint") {
+        return value.toString() + "n";
+      }
+
+      if (value === undefined) {
+        return "undefined";
+      }
+
+      if (value && typeof value === "object") {
+        try {
+          return JSON.stringify(value, null, 2);
+        } catch (error) {
+          return String(value);
+        }
+      }
+
+      return String(value);
+    }
+
+    function isSkippable(line) {
+      const trimmed = line.trim();
+      return !trimmed || trimmed.startsWith("#") || trimmed.startsWith("//");
+    }
+
+    function inspectLine(item) {
+      if (!item || item.skipped) {
+        tokenTitle.textContent = "Selected line";
+        astTitle.textContent = "Selected line";
+        tokensView.textContent = "This line was skipped.";
+        astView.textContent = "This line was skipped.";
+        return;
+      }
+
+      tokenTitle.textContent = "Line " + item.lineNumber;
+      astTitle.textContent = "Line " + item.lineNumber;
+
+      if (item.parseError) {
+        tokensView.textContent = item.parseError;
+        astView.textContent = item.parseError;
+        return;
+      }
+
+      tokensView.textContent = JSON.stringify(item.tokens, null, 2);
+      astView.textContent = JSON.stringify(item.ast, null, 2);
+    }
+
+    function renderResults(rows) {
+      lastRun = rows;
+
+      if (!rows.length) {
+        resultsEl.innerHTML = '<div class="empty">Run the notebook to see results line by line.</div>';
+        summaryEl.textContent = "Ready";
+        inspectLine(null);
+        return;
+      }
+
+      const executed = rows.filter((row) => !row.skipped);
+      const errors = executed.filter((row) => row.error).length;
+
+      summaryEl.textContent = executed.length + " lines, " + errors + " errors";
+
+      resultsEl.innerHTML = rows.map((row, index) => {
+        const statusClass = row.error ? "error" : "ok";
+        const output = row.skipped ? "[Skipped]" : row.error ? row.error : row.result;
+        return (
+          '<div class="result-row' + (index === 0 ? " active" : "") + '" data-index="' + index + '">' +
+            '<div class="line-no">L' + row.lineNumber + '</div>' +
+            '<div>' +
+              '<div class="expr-line">' + escapeHtml(row.source) + '</div>' +
+              '<div class="result-line ' + statusClass + '">' + escapeHtml(output) + '</div>' +
+            '</div>' +
+          '</div>'
+        );
+      }).join("");
+
+      const rowEls = resultsEl.querySelectorAll(".result-row");
+      rowEls.forEach((rowEl) => {
+        rowEl.addEventListener("click", () => {
+          rowEls.forEach((node) => node.classList.remove("active"));
+          rowEl.classList.add("active");
+          inspectLine(lastRun[Number(rowEl.dataset.index)]);
+        });
+      });
+
+      inspectLine(rows[0]);
+    }
+
+    function escapeHtml(value) {
+      return value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function runNotebook() {
+      const expr = new Exprify();
+      const lines = editor.value.split(/\r?\n/);
+      const rows = [];
+
+      for (let index = 0; index < lines.length; index++) {
+        const source = lines[index];
+        const lineNumber = index + 1;
+
+        if (isSkippable(source)) {
+          rows.push({
+            lineNumber,
+            source,
+            skipped: true
+          });
+          continue;
+        }
+
+        try {
+          const parsed = expr.parse(source);
+          const value = expr.evaluate(source);
+
+          rows.push({
+            lineNumber,
+            source,
+            skipped: false,
+            tokens: parsed.tokens,
+            ast: parsed.ast,
+            result: toText(value)
+          });
+        } catch (error) {
+          let parseError = "";
+
+          try {
+            expr.parse(source);
+          } catch (parseOnlyError) {
+            parseError = parseOnlyError.message;
+          }
+
+          rows.push({
+            lineNumber,
+            source,
+            skipped: false,
+            error: error.message,
+            parseError: parseError || error.message
+          });
+        }
+      }
+
+      renderResults(rows);
+    }
+
+    function setSample(value) {
+      editor.value = value;
+      runNotebook();
+    }
+
+    runBtn.addEventListener("click", runNotebook);
+
+    clearBtn.addEventListener("click", () => {
+      editor.value = "";
+      renderResults([]);
+    });
+
+    sampleFunctions.addEventListener("click", () => {
+      setSample("hyp(a, b) = sqrt(a ^ 2 + b ^ 2)\n" +
+        "area(r) = 3.14159 * r ^ 2\n" +
+        "hyp(8, 15)\n" +
+        "area(3)");
+    });
+
+    sampleUnits.addEventListener("click", () => {
+      setSample("2 inch to cm\n5 cm + 2 inch\n5cm + 0.2 m in inch");
+    });
+
+    sampleMatrices.addEventListener("click", () => {
+      setSample("m = [1, 2; 3, 4]\ndet(m)\nm[2, 1]\nm[1:2, 2]");
+    });
+
+    document.querySelectorAll(".sample").forEach((button) => {
+      button.addEventListener("click", () => {
+        setSample(button.dataset.sample.replace(/&#10;/g, "\n"));
+      });
+    });
+
+    editor.addEventListener("keydown", (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        event.preventDefault();
+        runNotebook();
+      }
+    });
+
+    runNotebook();
+  </script>
+</body>
+</html>

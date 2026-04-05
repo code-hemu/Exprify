@@ -202,6 +202,16 @@ export function evaluateAST(node, context = {}) {
   const simplifyComplex = (value) =>
     value.im === 0 ? value.re : value;
 
+  const createFunctionScope = (params, args) => {
+    const scopedValues = {};
+
+    params.forEach((param, index) => {
+      scopedValues[param] = args[index];
+    });
+
+    return scopedValues;
+  };
+
   const evalComplexBinary = (operator, left, right) => {
     const a = toComplex(left);
     const b = toComplex(right);
@@ -270,6 +280,20 @@ export function evaluateAST(node, context = {}) {
       throw new Error("Invalid assignment target");
     }
 
+    case "FunctionAssignmentExpression": {
+      if (node.operator !== "=") {
+        throw new Error(`Operator ${node.operator} is not supported for function definitions`);
+      }
+
+      const fn = (...args) => {
+        const scopedContext = context.withScope(createFunctionScope(node.params, args));
+        return evaluateAST(node.right, scopedContext);
+      };
+
+      fns.register(node.left.name, fn);
+      return fn;
+    }
+
     /* ===== UNARY ===== */
     case "UnaryExpression": {
       const val = evaluateAST(node.argument, context);
@@ -290,7 +314,7 @@ export function evaluateAST(node, context = {}) {
       let left = evaluateAST(node.left, context);
       let right = evaluateAST(node.right, context);
 
-      // 🔥 UNIT handling
+      // UNIT handling
       if (isUnitObj(left) || isUnitObj(right)) {
 
         if (!units) throw new Error("Unit system not available");

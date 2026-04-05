@@ -136,5 +136,16 @@ describe("Exprify Engine - Extended Tests", () => {
     expr.addFunction("addTen", (n) => n + 10);
     expect(expr.evaluate("addTen(double(5))")).toBe(20); // double(5)=10 → addTen(10)=20
   });
+
+  test("define and use inline function", () => {
+    expr.evaluate("hyp(a, b) = sqrt(a ^ 2 + b ^ 2)");
+    expect(expr.evaluate("hyp(3, 4)")).toBe(5);
+  });
+
+  test("inline function can use global variables", () => {
+    expr.setVariable("scale", 2);
+    expr.evaluate("mulScale(x) = x * scale");
+    expect(expr.evaluate("mulScale(5)")).toBe(10);
+  });
   
 });

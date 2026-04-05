@@ -603,6 +603,16 @@
     const simplifyComplex = (value) =>
       value.im === 0 ? value.re : value;
 
+    const createFunctionScope = (params, args) => {
+      const scopedValues = {};
+
+      params.forEach((param, index) => {
+        scopedValues[param] = args[index];
+      });
+
+      return scopedValues;
+    };
+
     const evalComplexBinary = (operator, left, right) => {
       const a = toComplex(left);
       const b = toComplex(right);
@@ -671,6 +681,20 @@
         throw new Error("Invalid assignment target");
       }
 
+      case "FunctionAssignmentExpression": {
+        if (node.operator !== "=") {
+          throw new Error(`Operator ${node.operator} is not supported for function definitions`);
+        }
+
+        const fn = (...args) => {
+          const scopedContext = context.withScope(createFunctionScope(node.params, args));
+          return evaluateAST(node.right, scopedContext);
+        };
+
+        fns.register(node.left.name, fn);
+        return fn;
+      }
+
       /* ===== UNARY ===== */
       case "UnaryExpression": {
         const val = evaluateAST(node.argument, context);
@@ -691,7 +715,7 @@
         let left = evaluateAST(node.left, context);
         let right = evaluateAST(node.right, context);
 
-        // 🔥 UNIT handling
+        // UNIT handling
         if (isUnitObj(left) || isUnitObj(right)) {
 
           if (!units) throw new Error("Unit system not available");
@@ -1778,7 +1802,7 @@
         case "Identifier":
           return { type: "Identifier", name: token.name };
         
-        case "Function": // 🔥 ADD THIS
+        case "Function":
           return {
             type: "Identifier",
             name: token.name
@@ -2182,6 +2206,29 @@
         match("Operator", "/=")
       ) {
         const operator = tokens[current - 1].value;
+
+        if (left.type === "CallExpression") {
+          const isFunctionTarget =
+            left.callee?.type === "Identifier" &&
+            left.arguments.every((arg) => arg.type === "Identifier");
+
+          if (!isFunctionTarget) {
+            throw new Error("Invalid function definition");
+          }
+
+          const right = parseAssignment();
+
+          return {
+            type: "FunctionAssignmentExpression",
+            operator,
+            left: {
+              type: "Identifier",
+              name: left.callee.name
+            },
+            params: left.arguments.map((arg) => arg.name),
+            right
+          };
+        }
 
         if (
           left.type !== "Identifier" &&
