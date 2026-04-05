@@ -7,6 +7,9 @@
   "module": "dist/exprify.esm.js",
   "browser": "dist/exprify.js",
   "unpkg": "dist/exprify.min.js",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "start": "node src/index.js",
     "clean": "rimraf dist",
