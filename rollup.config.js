@@ -1,12 +1,23 @@
-import resolve from "@rollup/plugin-node-resolve";
-import commonjs from "@rollup/plugin-commonjs";
-import { terser } from "rollup-plugin-terser";
-import pkg from "./package.json";
-
 import fs from "fs";
 import path from "path";
 
-function removeSourceMapComment() {
+import resolve from "@rollup/plugin-node-resolve";
+import commonjs from "@rollup/plugin-commonjs";
+
+import terser from "@rollup/plugin-terser";
+import pkg from "./package.json";
+
+const short_banner = `/*! ${pkg.name} v${pkg.version} | * (c) ${new Date().getFullYear()} ${pkg.author} and contributors | ${pkg.license} License*/`;
+
+const banner = `/*!
+* ${pkg.name} v${pkg.version}
+* (c) ${new Date().getFullYear()} ${pkg.author} and other contributors
+*
+* Released under the ${pkg.license} License
+* Date: ${new Date().toISOString().split('T')[0]}
+*/`;
+
+function removeComment() {
   return {
     name: "remove-sourcemap-comment",
     writeBundle(outputOptions, bundle) {
@@ -41,23 +52,19 @@ export default [
         file: "dist/exprify.cjs.js",
         format: "cjs",
         sourcemap: true,
+        exports: "default"
       },
       {
         file: "dist/exprify.js",
         format: "umd",
         name: "Exprify",
+        banner: banner,
         sourcemap: true,
-        banner: `/*!
-* ${pkg.name} v${pkg.version}
-* (c) ${new Date().getFullYear()} ${pkg.author} and other contributors
-*
-* Released under the ${pkg.license} License
-* Date: ${new Date().toISOString().split('T')[0]}
-*/`,
-        indent: true
+        indent: true,
+        exports: "default"
       }
     ],
-    plugins: [resolve(), commonjs(), removeSourceMapComment()]
+    plugins: [resolve(), commonjs(), removeComment()]
   },
   {
     input: "src/index.js",
@@ -66,8 +73,8 @@ export default [
       format: "umd",
       name: "Exprify",
       sourcemap: true,
-      banner: `/*! ${pkg.name} v${pkg.version} | * (c) ${new Date().getFullYear()} ${pkg.author} and contributors | ${pkg.license} License*/`
+      banner: short_banner
     },
-    plugins: [resolve(), commonjs(), terser(), removeSourceMapComment()]
+    plugins: [resolve(), commonjs(), terser(), removeComment()]
   }
 ];

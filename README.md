@@ -1,135 +1,203 @@
-# Exprify — Math Expression Parser & Evaluator
+# Exprify
 
 [![Exprify Social Banner](https://raw.githubusercontent.com/code-hemu/Exprify/refs/heads/main/src/assets/capture.jpg)](https://github.com/code-hemu/Exprify)
 
-Exprify is a JavaScript expression parser and evaluator supporting math operations, variables, and custom functions.
+Exprify is a JavaScript math expression parser and evaluator with runtime type checking. It supports arithmetic, variables, custom functions, unit conversion, matrices, complex numbers, and a small set of algebra helpers.
 
-## 🔧 Manual Build
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/code-hemu/Exprify.git
-   cd Exprify
+## Installation
 
-2. Install dependencies and build:
-   ```bash
-   npm install
-   npm run build
-   
-The output will be generated in a dist/ folder.
-
-## 🚀 Quick Start
-### Node.js / ES Modules
-```Javascript
-import Exprify from "exprify";
-const expr = new Exprify();
-console.log(expr.evaluate("5 + 7 * 2")); 
-// → 19
+```bash
+npm install exprify
 ```
-### Browser (UMD)
+
+## Quick Start
+
+```js
+import Exprify from "exprify";
+
+const expr = new Exprify();
+
+console.log(expr.evaluate("5 + 7 * 2"));
+// 19
+```
+
+## Browser Usage
+
 ```html
-<script src="exprify.js"></script>
+<script src="dist/exprify.js"></script>
 <script>
   const expr = new Exprify();
-  console.log(expr.evaluate("10 + 5 * 2"));
+  console.log(expr.evaluate("(10 + 5) * 2"));
 </script>
 ```
-## 🧠 Examples
-### ➕ Basic Math
-```Javascript
-expr.evaluate("10 + 5 * 2"); 
-// → 20
+
+## API
+
+### `new Exprify()`
+
+Creates a new evaluator instance with isolated variable, function, unit, and compile-cache state.
+
+### `expr.evaluate(expression)`
+
+Parses and evaluates an expression string.
+
+```js
+expr.evaluate("10 + 5 * 2");
+// 20
 ```
-### 🧮 Parentheses
-```Javascript
-expr.evaluate("(10 + 5) * 2"); 
-// → 30
+
+### `expr.parse(expression)`
+
+Returns the token list and AST for an expression.
+
+```js
+const parsed = expr.parse("2 inch to cm");
+console.log(parsed.tokens);
+console.log(parsed.ast);
 ```
-### 🔢 Variables
-```Javascript
+
+### `expr.compile(expression)`
+
+Compiles an expression once and returns a reusable function. You can pass a temporary scope object when calling it.
+
+```js
+const area = expr.compile("width * height");
+
+console.log(area({ width: 6, height: 4 }));
+// 24
+```
+
+### `expr.setVariable(name, value)` / `expr.getVariable(name)`
+
+Stores values on the instance for reuse across evaluations.
+
+```js
 expr.setVariable("x", 10);
 expr.setVariable("y", 5);
 
-expr.evaluate("x + y * 2");
-// → 20
-```
-### 🔧 Custom Functions
-```Javascript
-expr.addFunction("double", (x) => x * 2);
-
-expr.evaluate("#double(5) + 3");
-// → 13
+console.log(expr.evaluate("x + y * 2"));
+// 20
 ```
 
-### 📊 Built-in Functions
-```Javascript
-expr.evaluate("#max(10, 25, 7)"); 
-// → 25
+### `expr.addFunction(name, fn)`
 
-expr.evaluate("#min(10, 25, 7)"); 
-// → 7
-```
-## 🤿 Other Examples
-```Javascript
-//Create a new Exprify object with Exprify class
-const expr = new Exprify();
+Registers a custom function.
 
-//Simple Expression evaluation
-console.log(expr.evaluate(`25+5*2`)); // → 35
+```js
+expr.addFunction("double", (n) => n * 2);
 
-//Nested expression evaluation
-console.log(expr.evaluate(`((52/8+2)+56*((25/2)*4+(8-2)))*2`)); // → 6289
-
-//BigInt Expression evaluation
-console.log(expr.evaluate(`11n ^2n`)); // → 121n 
-
-//String concatenation: '+' Operator behaves as concatenation operator
-console.log(expr.evaluate(`"Hello " + "World"`)); // → "Hello World"
-
-//Invalid Expression: One operand is a string and another one is number
-console.log(expr.evaluate(`"45" + 5`)); // → datatype error
-
-//Invalid Expression: One operand is a number and another one is boolean
-console.log(expr.evaluate(`45 * true`)); // → datatype error
-
-//Invalid Expression: unclosed quoted text
-console.log(expr.evaluate(`"Hello World `)); // → unclosed error
+console.log(expr.evaluate("double(5) + 3"));
+// 13
 ```
 
-## 🧩 Built-in Functions
-Exprify has some built-in functions, here is a complete list
-|  Function | Details | Example |
-| - | - |- |
-|**#max(...)**| #max() function returns the largest number of the provided numerical arguments | ```"#max(45,50,20, 4+9*(6+4))" //returns 94 ```|
-|**#min(...)**| #min() function returns the smallest number of the provided numerical arguments | ```"#min(45,50,20, 4+9*(6+4))" //returns 20 ```|
-|**#and(...)** <br> or <br> **#&&**| **#and()** or **#&&** tests each of its arguments , if all are true then it will return true | ```"#and(true , true, false)" //returns false ``` <br> <br> ```"#&&(true , true, false)" //returns false ```|
-|**#or(...)** <br> or <br> **#\|\|** | **#or()** or **#\|\|()** tests each of its arguments , if any of its arguments is true then it will return true | ```"#or(true , true, false)" //returns true ``` <br> <br> ```"#\|\|(true , true, false)" //returns true```|
-|**#not(x)** <br> or <br> **#!**| **#not()** or **#!()** changes 'true' value to a 'false' value and 'false' value to a 'true' value | ```"#not(true)" //returns false ``` <br> <br> ```"#!(true)" //returns false ``` |
-|**#greaterThan(...)** <br> or <br> **#>**| **#greaterThan()** or **#>()** takes 2 parameters and compare if that the 1st parameter is greater than the second parameter or not | ```"#greaterThan(67 , 5)" //returns true ``` <br> <br>```"#>(67 , 5)" //returns true ``` |
-|**#lessThan(...)** <br> or <br> **#<**| **#lessThan()** or **#<()** takes 2 parameters and compare if that the 1st parameter is less than the second parameter or not | ```"#lessThan(67 , 5)" //returns false ``` <br> <br>```"#<(67 , 5)" //returns false ``` |
-|**#isEqual(...)** <br> or <br> **#==**| **#isEqual()** or **#==()** takes 2 parameters and compare if that the both parameter is same numerical value or not | ```"#isEqual(60 , 50+10)" //returns true ``` <br> <br>```"#==(60 , 50+10)" //returns true ``` |
-|**#if(...)**| **#if()** takes 3 parameters. 1st parameter is a condition parameter, if the condition is true then it returns 2nd parameter otherwise it returns 3rd parameter (if the 3rd parameter is not specified then its default value false will be return) | ```"#if(true , 5, 80)" //returns 80 ``` <br> <br> ```"#if(#<(50,100) , '50 is less than 100', '100 is less than 50')" //returns '50 is less than 100' ```|
+## Supported Features
 
+### Arithmetic and precedence
 
-## 📜 License
-Exprify is freely distributable under the terms of the GPL-3.0 License. Copyright (c) [Nirmal Paul](https://github.com/nirmalpaul383/) (N Paul).
+```js
+expr.evaluate("2 + 3 * 4");
+// 14
 
+expr.evaluate("(2 + 3) * 4");
+// 20
 
-## 🤝 Contributing
+expr.evaluate("11n ^ 2n");
+// 121n
+```
 
-Contributions are welcome!
+### Strings and booleans
 
-1. Fork the repo
+```js
+expr.evaluate('"Hello " + "World"');
+// "Hello World"
 
-2. Create your branch:
-   ```bash
-   git checkout -b feature/your-feature
-   
-3. Commit changes:
-   ```bash   
-   git commit -m "Add your feature"
-   
-4. Push and open a PR 🚀
+expr.evaluate("true && false");
+// false
+```
 
-## ⭐ Support
-If you like [this project](https://github.com/code-hemu/Exprify), give it a ⭐ on GitHub! This project is originally made by [Nirmal Paul](https://github.com/nirmalpaul383/) (N Paul) and replicate by [ViewPoint](https://github.com/nirmalpaul383/ViewPoint). The Main Developer's (N Paul) [youtube page](https://www.youtube.com/channel/UCY6JY8bTlR7hZEvhy6Pldxg/), [facebook page](https://facebook.com/a.new.way.Technical/).
+### Built-in functions
 
+```js
+expr.evaluate("max(10, 25, 7)");
+// 25
+
+expr.evaluate("min(10, 25, 7)");
+// 7
+
+expr.evaluate("sqrt(81)");
+// 9
+```
+
+Common built-ins include `max`, `min`, `abs`, `round`, `floor`, `ceil`, `sqrt`, `pow`, `sin`, `cos`, `tan`, `log`, `log10`, `exp`, `clamp`, `if`, `length`, `typeof`, `det`, `simplify`, and `derivative`.
+
+### Unit conversion
+
+```js
+expr.evaluate("2 inch to cm");
+// "5.08 cm"
+
+expr.evaluate("5 cm + 2 inch");
+// "10.08 cm"
+
+expr.evaluate("5cm + 0.2 m in inch");
+// "9.84251968503937 inch"
+```
+
+### Matrices
+
+```js
+expr.evaluate("det([-1, 2; 3, 1])");
+// -7
+
+expr.evaluate("a = [1, 2, 3; 4, 5, 6]");
+expr.evaluate("a[2, 3]");
+// 6
+
+expr.evaluate("a[1:2, 2]");
+// "2\n5"
+```
+
+### Complex numbers
+
+```js
+expr.evaluate("9 / 3 + 2i");
+// "3 + 2i"
+```
+
+### Algebra helpers
+
+```js
+expr.evaluate('simplify("2x + x")');
+// "3 * x"
+
+expr.evaluate('derivative("2x^2 + 3x + 4", "x")');
+// "4 * x + 3"
+```
+
+## Manual Build
+
+```bash
+git clone https://github.com/code-hemu/Exprify.git
+cd Exprify
+npm install
+npm run build
+```
+
+Build output is generated in `dist/`.
+
+## Testing
+
+```bash
+npm test
+```
+
+## License
+
+Exprify is licensed under GPL-3.0. Copyright (c) [Nirmal Paul](https://github.com/nirmalpaul383/).
+
+## Contributing
+
+1. Fork the repository.
+2. Create a branch: `git checkout -b feature/your-feature`
+3. Commit your changes: `git commit -m "Add your feature"`
+4. Push the branch and open a pull request.

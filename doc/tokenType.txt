@@ -1,0 +1,48 @@
+ALL TOKEN TYPES (FINAL DESIGN)
+
+// LITERALS
+{ type: "Number", value: 10 }
+{ type: "BigInt", value: 10n }
+{ type: "Boolean", value: true }
+{ type: "String", value: "hello" }
+
+{ type: "Unit", value: "cm" }
+{ type: "NumberWithUnit", value: 12.7, unit: "cm" }
+{ type: "UnknownUnit", value: 5, unit: "abc" }
+
+// IDENTIFIERS
+{ type: "Identifier", value: "x" }
+
+// FUNCTIONS
+{ type: "Function", value: "max" }
+
+// OPERATORS
+{ type: "Operator", value: "+" }
+{ type: "Operator", value: ">=" }
+{ type: "Operator", value: "&&" }
+{ type: "Operator", value: "|>" }
+
+// UNARY
+{ type: "UnaryOperator", value: "-" }
+{ type: "UnaryOperator", value: "!" }
+
+// LOGIC / TERNARY
+{ type: "Ternary", value: "?" }
+{ type: "Ternary", value: ":" }
+
+// STRUCTURE
+{ type: "Parenthesis", value: "(" }
+{ type: "Parenthesis", value: ")" }
+{ type: "ArrayStart" }
+{ type: "ArrayEnd" }
+{ type: "BlockStart" }
+{ type: "BlockEnd" }
+{ type: "Colon" }
+{ type: "Comma" }
+{ type: "Dot" }
+
+// KEYWORDS
+{ type: "Keyword", value: "to" }
+{ type: "Keyword", value: "if" }
+
+

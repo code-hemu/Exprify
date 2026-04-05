@@ -3,16 +3,6 @@ const isValidNumberPair = (a, b) =>
   (typeof a === 'number' || typeof a === 'bigint');
 
 export const mathOperations = Object.freeze({
-
-  operator_precedence: {
-    '^': 4,
-    '*': 3,
-    '/': 3,
-    '%': 3,
-    '+': 1,
-    '-': 1,
-  },
-
   power: function(a, b) {
     if (isValidNumberPair(a, b)) return a ** b;
     throw new Error("Invalid types for ^");
