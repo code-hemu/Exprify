@@ -1,20 +1,21 @@
----
-layout: default
-title: Exprify Docs
----
-
 # Exprify Docs
 
-Exprify is a JavaScript expression parser and evaluator for math-heavy apps.
+This folder contains supporting documentation for Exprify beyond the main project README.
 
-## Highlights
+## Contents
 
-- arithmetic, precedence, bigint, and booleans
-- variables, assignments, and inline functions
+### Getting Started
+
+Exprify is a math expression parser and evaluator for JavaScript with support for:
+
+- arithmetic and precedence
+- variables and assignments
+- custom JavaScript functions
+- inline function definitions
 - unit conversion
-- matrices and linear algebra helpers
+- matrices
 - complex numbers
-- symbolic helpers like `simplify`, `derivative`, and `rationalize`
+- algebra helpers
 
 ## Quick Example
 
@@ -28,7 +29,30 @@ console.log(expr.evaluate("hyp(3, 4)"));
 // 5
 ```
 
-## References
+## Main References
 
-- [Project README](../README.md)
-- [Token Type Notes](./tokenType.txt)
+- Project overview and API: [`../README.md`](../README.md)
+- Token type reference: [`tokenType.txt`](./tokenType.txt)
+
+## Useful Expressions
+
+```txt
+x = 10
+y = 5
+x + y * 2
+```
+
+```txt
+2 inch to cm
+5 cm + 2 inch
+```
+
+```txt
+m = [1, 2; 3, 4]
+det(m)
+```
+
+```txt
+hyp(a, b) = sqrt(a ^ 2 + b ^ 2)
+hyp(6, 8)
+```

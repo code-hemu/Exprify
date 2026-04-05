@@ -1,7 +1,6 @@
 .github/
-doc/
+docs/
 node_modules/
-src/
 test/
 
 .gitattributes
