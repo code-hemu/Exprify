@@ -1,0 +1,21 @@
+Token notes for Exprify
+
+- Number
+- BigInt
+- Boolean
+- String
+- Identifier
+- Function
+- Operator
+- UnaryOperator
+- Keyword
+- Unit
+- NumberWithUnit
+- ImaginaryLiteral
+- Parenthesis
+- ArrayStart / ArrayEnd
+- BlockStart / BlockEnd
+- Comma
+- Semicolon
+- Colon
+- Dot
