@@ -1,3 +1,5 @@
+import { unwrapDenseMatrix, wrapDenseMatrix } from "../utils/matrix.js";
+
 export function evaluateAST(node, context = {}) {
 
   const vars = context.variables;
@@ -30,6 +32,7 @@ export function evaluateAST(node, context = {}) {
   };
 
   const normalizeMatrix = (value) => {
+    value = unwrapDenseMatrix(value);
     if (isMatrix(value)) return value.map((row) => [...row]);
     if (Array.isArray(value)) return [value];
     throw new Error("Expected matrix-compatible value");
@@ -267,6 +270,9 @@ export function evaluateAST(node, context = {}) {
 
       if (node.left.type === "Identifier") {
         vars.set(node.left.name, value);
+        if (node.right.type === "ArrayExpression") {
+          return wrapDenseMatrix(unwrapDenseMatrix(value));
+        }
         return value;
       }
 

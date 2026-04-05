@@ -400,6 +400,60 @@ function tokenize(expr, context = {}) {
   return final;
 }
 
+const isDenseMatrixWrapper = (value) =>
+  value &&
+  typeof value === "object" &&
+  value.exprify === "DenseMatrix" &&
+  "data" in value &&
+  "size" in value;
+
+const cloneMatrixData = (value) => {
+  if (Array.isArray(value)) {
+    return value.map(cloneMatrixData);
+  }
+
+  return value;
+};
+
+const getMatrixSize = (data) => {
+  if (Array.isArray(data) && data.every(Array.isArray)) {
+    return [data.length, data[0]?.length || 0];
+  }
+
+  if (Array.isArray(data)) {
+    return [data.length];
+  }
+
+  throw new Error("Matrix data must be an array");
+};
+
+const wrapDenseMatrix = (data) => ({
+  exprify: "DenseMatrix",
+  data: cloneMatrixData(data),
+  size: getMatrixSize(data)
+});
+
+const unwrapDenseMatrix = (value) =>
+  isDenseMatrixWrapper(value) ? cloneMatrixData(value.data) : value;
+
+const serializeExprifyValue = (value) => {
+  if (isDenseMatrixWrapper(value)) {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value) || (value && typeof value === "object")) {
+    return JSON.stringify(value, (_, current) => {
+      if (isDenseMatrixWrapper(current)) {
+        return current;
+      }
+
+      return current;
+    });
+  }
+
+  return value;
+};
+
 function evaluateAST(node, context = {}) {
 
   const vars = context.variables;
@@ -420,6 +474,7 @@ function evaluateAST(node, context = {}) {
     Array.isArray(v) && v.length > 0 && v.every(Array.isArray);
 
   const normalizeMatrix = (value) => {
+    value = unwrapDenseMatrix(value);
     if (isMatrix(value)) return value.map((row) => [...row]);
     if (Array.isArray(value)) return [value];
     throw new Error("Expected matrix-compatible value");
@@ -657,6 +712,9 @@ function evaluateAST(node, context = {}) {
 
       if (node.left.type === "Identifier") {
         vars.set(node.left.name, value);
+        if (node.right.type === "ArrayExpression") {
+          return wrapDenseMatrix(unwrapDenseMatrix(value));
+        }
         return value;
       }
 
@@ -1454,6 +1512,7 @@ function createFunctionRegistry(initial = {}) {
 }
 
 function validateSquareMatrix(matrix) {
+  matrix = unwrapDenseMatrix(matrix);
   if (!Array.isArray(matrix) || matrix.length === 0) {
     throw new Error("det() expects a non-empty matrix");
   }
@@ -1477,6 +1536,7 @@ function validateSquareMatrix(matrix) {
 }
 
 function determinant(matrix) {
+  matrix = unwrapDenseMatrix(matrix);
   validateSquareMatrix(matrix);
 
   if (matrix.length === 1) {
@@ -1494,6 +1554,334 @@ function determinant(matrix) {
     const cofactor = columnIndex % 2 === 0 ? value : -value;
     return sum + (cofactor * determinant(minor));
   }, 0);
+}
+
+function asMatrixData(value) {
+  const data = unwrapDenseMatrix(value);
+  if (!Array.isArray(data)) {
+    throw new Error("Expected matrix data");
+  }
+  return data;
+}
+
+function solveLinearSystem(coefficients, constants) {
+  const n = coefficients.length;
+  const augmented = coefficients.map((row, rowIndex) => [...row, constants[rowIndex]]);
+
+  for (let pivot = 0; pivot < n; pivot++) {
+    let maxRow = pivot;
+    let maxValue = Math.abs(augmented[pivot][pivot]);
+
+    for (let row = pivot + 1; row < n; row++) {
+      const current = Math.abs(augmented[row][pivot]);
+      if (current > maxValue) {
+        maxValue = current;
+        maxRow = row;
+      }
+    }
+
+    if (maxValue === 0) {
+      throw new Error("Linear system is singular");
+    }
+
+    if (maxRow !== pivot) {
+      [augmented[pivot], augmented[maxRow]] = [augmented[maxRow], augmented[pivot]];
+    }
+
+    const pivotValue = augmented[pivot][pivot];
+    for (let col = pivot; col <= n; col++) {
+      augmented[pivot][col] /= pivotValue;
+    }
+
+    for (let row = 0; row < n; row++) {
+      if (row === pivot) continue;
+      const factor = augmented[row][pivot];
+      for (let col = pivot; col <= n; col++) {
+        augmented[row][col] -= factor * augmented[pivot][col];
+      }
+    }
+  }
+
+  return augmented.map((row) => row[n]);
+}
+
+function lupDecomposition(input) {
+  const matrix = asMatrixData(input).map((row) => [...row]);
+  validateSquareMatrix(matrix);
+
+  const n = matrix.length;
+  const permutation = Array.from({ length: n }, (_, index) => index);
+
+  for (let pivot = 0; pivot < n; pivot++) {
+    let maxRow = pivot;
+    let maxValue = Math.abs(matrix[pivot][pivot]);
+
+    for (let row = pivot + 1; row < n; row++) {
+      const current = Math.abs(matrix[row][pivot]);
+      if (current > maxValue) {
+        maxValue = current;
+        maxRow = row;
+      }
+    }
+
+    if (maxValue === 0) {
+      throw new Error("Matrix is singular");
+    }
+
+    if (maxRow !== pivot) {
+      [matrix[pivot], matrix[maxRow]] = [matrix[maxRow], matrix[pivot]];
+      [permutation[pivot], permutation[maxRow]] = [permutation[maxRow], permutation[pivot]];
+    }
+
+    for (let row = pivot + 1; row < n; row++) {
+      matrix[row][pivot] /= matrix[pivot][pivot];
+      for (let col = pivot + 1; col < n; col++) {
+        matrix[row][col] -= matrix[row][pivot] * matrix[pivot][col];
+      }
+    }
+  }
+
+  const L = matrix.map((row, rowIndex) =>
+    row.map((value, colIndex) => {
+      if (rowIndex === colIndex) return 1;
+      if (rowIndex > colIndex) return value;
+      return 0;
+    })
+  );
+
+  const U = matrix.map((row, rowIndex) =>
+    row.map((value, colIndex) => (rowIndex <= colIndex ? value : 0))
+  );
+
+  return {
+    L: wrapDenseMatrix(L),
+    U: wrapDenseMatrix(U),
+    p: permutation
+  };
+}
+
+function linearSolve(aInput, bInput) {
+  const { L, U, p } = lupDecomposition(aInput);
+  const a = asMatrixData(aInput);
+  const bData = asMatrixData(bInput);
+  const bVector = Array.isArray(bData[0]) ? bData.map((row) => row[0]) : bData;
+
+  if (a.length !== bVector.length) {
+    throw new Error("Right-hand side dimension mismatch");
+  }
+
+  const permutedB = p.map((index) => bVector[index]);
+  const y = new Array(a.length).fill(0);
+
+  for (let row = 0; row < a.length; row++) {
+    y[row] = permutedB[row];
+    for (let col = 0; col < row; col++) {
+      y[row] -= L.data[row][col] * y[col];
+    }
+  }
+
+  const x = new Array(a.length).fill(0);
+  for (let row = a.length - 1; row >= 0; row--) {
+    x[row] = y[row];
+    for (let col = row + 1; col < a.length; col++) {
+      x[row] -= U.data[row][col] * x[col];
+    }
+    x[row] /= U.data[row][row];
+  }
+
+  return wrapDenseMatrix(x.map((value) => [value]));
+}
+
+function solveLyapunov(aInput, qInput) {
+  const A = asMatrixData(aInput).map((row) => [...row]);
+  const Q = asMatrixData(qInput).map((row) => [...row]);
+  validateSquareMatrix(A);
+  validateSquareMatrix(Q);
+
+  const n = A.length;
+  if (Q.length !== n) {
+    throw new Error("A and Q must have the same dimensions");
+  }
+
+  const coefficients = [];
+  const constants = [];
+
+  for (let row = 0; row < n; row++) {
+    for (let col = 0; col < n; col++) {
+      const equation = new Array(n * n).fill(0);
+
+      for (let k = 0; k < n; k++) {
+        equation[k * n + col] += A[row][k];
+        equation[row * n + k] += A[col][k];
+      }
+
+      coefficients.push(equation);
+      constants.push(-Q[row][col]);
+    }
+  }
+
+  const solution = solveLinearSystem(coefficients, constants);
+  const X = [];
+
+  for (let row = 0; row < n; row++) {
+    X.push(solution.slice(row * n, (row + 1) * n));
+  }
+
+  return wrapDenseMatrix(X);
+}
+
+function evaluatePolynomial(coefficients, x) {
+  return coefficients.reduce((sum, coefficient, index) => sum + (coefficient * (x ** index)), 0);
+}
+
+function syntheticDivide(coefficients, root) {
+  const descending = [...coefficients].reverse();
+  const quotient = [descending[0]];
+
+  for (let index = 1; index < descending.length - 1; index++) {
+    quotient.push(descending[index] + (quotient[index - 1] * root));
+  }
+
+  const remainder = descending[descending.length - 1] + (quotient[quotient.length - 1] * root);
+  return {
+    quotient: quotient.reverse(),
+    remainder
+  };
+}
+
+function solveQuadratic(coefficients) {
+  const [c, b, a] = coefficients;
+  const discriminant = (b ** 2) - (4 * a * c);
+  if (discriminant < 0) {
+    throw new Error("Only real roots are supported");
+  }
+
+  const sqrtDisc = Math.sqrt(discriminant);
+  return [
+    (-b + sqrtDisc) / (2 * a),
+    (-b - sqrtDisc) / (2 * a)
+  ];
+}
+
+function polynomialRoots(...coefficients) {
+  while (coefficients.length > 1 && coefficients[coefficients.length - 1] === 0) {
+    coefficients.pop();
+  }
+
+  const degree = coefficients.length - 1;
+  if (degree < 1) {
+    throw new Error("polynomialRoot() expects at least a linear polynomial");
+  }
+
+  if (degree === 1) {
+    const [b, a] = coefficients;
+    return [-b / a];
+  }
+
+  if (degree === 2) {
+    return solveQuadratic(coefficients);
+  }
+
+  if (degree === 3) {
+    const constant = coefficients[0];
+    coefficients[3];
+    const candidates = [];
+    const limit = Math.abs(constant);
+
+    for (let divisor = 1; divisor <= Math.max(1, limit); divisor++) {
+      if (limit % divisor === 0) {
+        candidates.push(divisor, -divisor);
+      }
+    }
+
+    for (const candidate of candidates) {
+      if (evaluatePolynomial(coefficients, candidate) === 0) {
+        const reduced = syntheticDivide(coefficients, candidate);
+        const remainingRoots = solveQuadratic(reduced.quotient);
+        return [candidate, ...remainingRoots];
+      }
+    }
+  }
+
+  throw new Error("polynomialRoot() currently supports degree up to 3");
+}
+
+function dotProduct(a, b) {
+  return a.reduce((sum, value, index) => sum + (value * b[index]), 0);
+}
+
+function vectorNorm(vector) {
+  return Math.sqrt(dotProduct(vector, vector));
+}
+
+function scaleVector(vector, scalar) {
+  return vector.map((value) => value * scalar);
+}
+
+function subtractVectors(a, b) {
+  return a.map((value, index) => value - b[index]);
+}
+
+function transpose(matrix) {
+  return matrix[0].map((_, colIndex) => matrix.map((row) => row[colIndex]));
+}
+
+function qrDecomposition(input) {
+  const A = asMatrixData(input).map((row) => [...row]);
+  if (!A.length || !A.every((row) => row.length === A[0].length)) {
+    throw new Error("qr() expects a rectangular matrix");
+  }
+
+  const rowCount = A.length;
+  const colCount = A[0].length;
+  const columns = transpose(A);
+  const qColumns = [];
+
+  for (let col = 0; col < colCount; col++) {
+    let vector = [...columns[col]];
+
+    for (let existing = 0; existing < qColumns.length; existing++) {
+      const projection = dotProduct(qColumns[existing], columns[col]);
+      vector = subtractVectors(vector, scaleVector(qColumns[existing], projection));
+    }
+
+    const norm = vectorNorm(vector);
+    if (norm === 0) {
+      throw new Error("qr() requires linearly independent columns");
+    }
+
+    qColumns.push(scaleVector(vector, 1 / norm));
+  }
+
+  for (let basisIndex = 0; qColumns.length < rowCount && basisIndex < rowCount; basisIndex++) {
+    let candidate = Array.from({ length: rowCount }, (_, index) => (index === basisIndex ? 1 : 0));
+
+    for (const column of qColumns) {
+      const projection = dotProduct(column, candidate);
+      candidate = subtractVectors(candidate, scaleVector(column, projection));
+    }
+
+    const norm = vectorNorm(candidate);
+    if (norm > 1e-10) {
+      qColumns.push(scaleVector(candidate, 1 / norm));
+    }
+  }
+
+  const Q = Array.from({ length: rowCount }, (_, rowIndex) =>
+    qColumns.map((column) => column[rowIndex])
+  );
+
+  const fullR = Array.from({ length: rowCount }, () => Array(colCount).fill(0));
+  for (let row = 0; row < rowCount; row++) {
+    for (let col = 0; col < colCount; col++) {
+      fullR[row][col] = dotProduct(qColumns[row], columns[col]);
+    }
+  }
+
+  return {
+    Q: wrapDenseMatrix(Q),
+    R: wrapDenseMatrix(fullR)
+  };
 }
 
 function splitTerms(expression) {
@@ -1632,6 +2020,11 @@ const internalFunctions = {
 
   pow: (a, b) => a ** b,
   det: (matrix) => determinant(matrix),
+  polynomialRoot: (...coefficients) => polynomialRoots(...coefficients),
+  lsolve: (a, b) => linearSolve(a, b),
+  lup: (matrix) => lupDecomposition(matrix),
+  lyap: (a, q) => solveLyapunov(a, q),
+  qr: (matrix) => qrDecomposition(matrix),
   simplify: (expression) => {
     if (typeof expression !== "string") {
       throw new Error("simplify() expects an expression string");
@@ -2284,6 +2677,18 @@ const formatComplex = (value) => {
     return `${real} ${sign} ${imagPart}`;
 };
 
+const formatScalar = (value) => {
+    if (typeof value !== "number") {
+        return String(value);
+    }
+
+    if (Number.isInteger(value)) {
+        return String(value);
+    }
+
+    return Number(value.toFixed(14)).toString();
+};
+
 const formatResult = (value) => {
     if (isComplex(value)) {
         return formatComplex(value);
@@ -2293,12 +2698,20 @@ const formatResult = (value) => {
         return `${value.value} ${value.unit}`;
     }
 
+    if (isDenseMatrixWrapper(value)) {
+        return serializeExprifyValue(value);
+    }
+
     if (isMatrix(value)) {
-        return value.map((row) => row.join("\t")).join("\n");
+        return value.map((row) => row.map(formatScalar).join("\t")).join("\n");
     }
 
     if (Array.isArray(value)) {
-        return value.join("\n");
+        return JSON.stringify(value);
+    }
+
+    if (value && typeof value === "object") {
+        return serializeExprifyValue(value);
     }
 
     return value;
@@ -2312,6 +2725,213 @@ class exprify {
         this.functions = createFunctionRegistry(internalFunctions);
         this.variables = createVarStore();
         this._cache = new Map();
+        this.variables.set("pi", Math.PI);
+        this.variables.set("e", Math.E);
+        this.addFunction("parse", (expression) => {
+            if (typeof expression !== "string") {
+                throw new Error("parse() expects an expression string");
+            }
+            return expression;
+        });
+        this.addFunction("leafCount", (value) => {
+            const countLeafTokens = (expression) => {
+                const strippedKeys = expression.replace(/(^|[{,]\s*)[a-zA-Z_][a-zA-Z0-9_]*\s*:/g, "$1");
+                const matches = strippedKeys.match(/\d+(\.\d+)?(e[+-]?\d+)?n?|[a-zA-Z_][a-zA-Z0-9_]*/gi);
+                return matches ? matches.length : 0;
+            };
+
+            let ast = value;
+            if (typeof value === "string") {
+                try {
+                    ast = this.parse(value).ast;
+                } catch {
+                    return countLeafTokens(value);
+                }
+            }
+
+            const countLeaves = (node) => {
+                if (!node || typeof node !== "object") return 0;
+
+                switch (node.type) {
+                    case "Literal":
+                    case "ImaginaryLiteral":
+                    case "UnitLiteral":
+                    case "Identifier":
+                        return 1;
+                    default:
+                        return Object.values(node).reduce((sum, child) => {
+                            if (Array.isArray(child)) {
+                                return sum + child.reduce((inner, item) => inner + countLeaves(item), 0);
+                            }
+
+                            return sum + countLeaves(child);
+                        }, 0);
+                }
+            };
+
+            return countLeaves(ast);
+        });
+        this.addFunction("matrix", (value) => wrapDenseMatrix(value));
+        this.addFunction("sparse", (value) => wrapDenseMatrix(value));
+        this.addFunction("rationalize", (expression, withDetails = false) => {
+            if (typeof expression !== "string") {
+                throw new Error("rationalize() expects an expression string");
+            }
+
+            const normalizedExpression = expression
+                .replace(/\s+/g, "")
+                .replace(/(\d)([a-zA-Z(])/g, "$1*$2")
+                .replace(/([a-zA-Z)])(\d)/g, "$1*$2");
+
+            const polyKey = (powers) => JSON.stringify(Object.entries(powers).sort(([a], [b]) => a.localeCompare(b)));
+            const keyToPowers = (key) => Object.fromEntries(JSON.parse(key));
+            const constPoly = (value) => new Map([[polyKey({}), value]]);
+            const varPoly = (name) => new Map([[polyKey({ [name]: 1 }), 1]]);
+            const cleanPoly = (poly) => new Map([...poly.entries()].filter(([, coeff]) => coeff !== 0));
+            const addPoly = (a, b, sign = 1) => {
+                const result = new Map(a);
+                for (const [key, coeff] of b.entries()) {
+                    result.set(key, (result.get(key) || 0) + (sign * coeff));
+                }
+                return cleanPoly(result);
+            };
+            const multiplyPoly = (a, b) => {
+                const result = new Map();
+                for (const [keyA, coeffA] of a.entries()) {
+                    const powersA = keyToPowers(keyA);
+                    for (const [keyB, coeffB] of b.entries()) {
+                        const powersB = keyToPowers(keyB);
+                        const merged = { ...powersA };
+                        for (const [name, power] of Object.entries(powersB)) {
+                            merged[name] = (merged[name] || 0) + power;
+                        }
+                        const key = polyKey(merged);
+                        result.set(key, (result.get(key) || 0) + (coeffA * coeffB));
+                    }
+                }
+                return cleanPoly(result);
+            };
+            const powPoly = (poly, exponent) => {
+                let result = constPoly(1);
+                for (let index = 0; index < exponent; index++) {
+                    result = multiplyPoly(result, poly);
+                }
+                return result;
+            };
+            const rational = (num, den = constPoly(1)) => ({ num, den });
+            const addRat = (a, b, sign = 1) => rational(
+                addPoly(
+                    multiplyPoly(a.num, b.den),
+                    multiplyPoly(b.num, a.den),
+                    sign
+                ),
+                multiplyPoly(a.den, b.den)
+            );
+            const mulRat = (a, b) => rational(multiplyPoly(a.num, b.num), multiplyPoly(a.den, b.den));
+            const divRat = (a, b) => rational(multiplyPoly(a.num, b.den), multiplyPoly(a.den, b.num));
+            const negRat = (value) => rational(addPoly(new Map(), value.num, -1), value.den);
+            const astToRat = (node) => {
+                switch (node.type) {
+                    case "Literal":
+                        return rational(constPoly(node.value));
+                    case "Identifier":
+                        return rational(varPoly(node.name));
+                    case "UnaryExpression":
+                        if (node.operator === "-") return negRat(astToRat(node.argument));
+                        throw new Error("Unsupported unary operator");
+                    case "BinaryExpression": {
+                        const left = astToRat(node.left);
+                        const right = astToRat(node.right);
+                        switch (node.operator) {
+                            case "+": return addRat(left, right);
+                            case "-": return addRat(left, right, -1);
+                            case "*": return mulRat(left, right);
+                            case "/": return divRat(left, right);
+                            case "^": {
+                                if (node.right.type !== "Literal" || !Number.isInteger(node.right.value) || node.right.value < 0) {
+                                    throw new Error("Unsupported exponent");
+                                }
+                                return rational(
+                                    powPoly(left.num, node.right.value),
+                                    powPoly(left.den, node.right.value)
+                                );
+                            }
+                            default:
+                                throw new Error("Unsupported operator in rationalize()");
+                        }
+                    }
+                    default:
+                        throw new Error("Unsupported expression in rationalize()");
+                }
+            };
+            const formatPoly = (poly) => {
+                const entries = [...poly.entries()]
+                    .filter(([, coeff]) => coeff !== 0)
+                    .sort(([keyA], [keyB]) => {
+                        const powersA = keyToPowers(keyA);
+                        const powersB = keyToPowers(keyB);
+                        const firstVarA = Object.keys(powersA).sort()[0] || "";
+                        const firstVarB = Object.keys(powersB).sort()[0] || "";
+
+                        if (firstVarA !== firstVarB) {
+                            return firstVarA.localeCompare(firstVarB);
+                        }
+
+                        const degreeA = Object.values(powersA).reduce((sum, value) => sum + value, 0);
+                        const degreeB = Object.values(powersB).reduce((sum, value) => sum + value, 0);
+                        return degreeB - degreeA;
+                    });
+
+                if (!entries.length) return "0";
+
+                return entries.map(([key, coeff], index) => {
+                    const powers = keyToPowers(key);
+                    const absCoeff = Math.abs(coeff);
+                    const variablePart = Object.entries(powers)
+                        .map(([name, power]) => power === 1 ? name : `${name} ^ ${power}`)
+                        .join(" * ");
+                    let body = variablePart;
+
+                    if (!body) {
+                        body = `${absCoeff}`;
+                    } else if (absCoeff !== 1) {
+                        body = `${absCoeff} * ${body}`;
+                    }
+
+                    if (index === 0) {
+                        return coeff < 0 ? `- ${body}`.replace("- ", "-") : body;
+                    }
+
+                    return coeff < 0 ? `- ${body}` : `+ ${body}`;
+                }).join(" ");
+            };
+
+            const ast = this.parse(normalizedExpression).ast;
+            const result = astToRat(ast);
+            const numerator = formatPoly(result.num);
+            const denominator = formatPoly(result.den);
+            const variableSet = new Set();
+
+            for (const poly of [result.num, result.den]) {
+                for (const key of poly.keys()) {
+                    for (const name of Object.keys(keyToPowers(key))) {
+                        variableSet.add(name);
+                    }
+                }
+            }
+
+            if (!withDetails) {
+                return `(${numerator}) / (${denominator})`;
+            }
+
+            return {
+                numerator,
+                denominator,
+                coefficients: [],
+                variables: [...variableSet].sort(),
+                expression: `(${numerator}) / (${denominator})`
+            };
+        });
     }
 
     setVariable(name, value) {
