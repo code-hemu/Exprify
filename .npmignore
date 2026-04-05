@@ -1,0 +1,11 @@
+.github/
+doc/
+node_modules/
+src/
+test/
+
+.gitattributes
+.gitignore
+CHANGELOG.md
+package-lock.json
+rollup.config.js
