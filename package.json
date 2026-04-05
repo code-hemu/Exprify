@@ -1,6 +1,6 @@
 {
   "name": "exprify",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A powerful math expression parser and evaluator with runtime data-type checking",
   "type": "module",
   "main": "dist/exprify.cjs.js",

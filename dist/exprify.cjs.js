@@ -14,7 +14,8 @@ function tokenize(expr, context = {}) {
 
   const parentheses = "()";
   const comma = ",";
-  const keywords = ["to"];
+  const semicolon = ";";
+  const keywords = ["to", "in"];
   // const functions = context.functions?.getAllFunctionsName?.() || [];
   const units = context.units?.getAllUnitsFlat?.() || [];
 
@@ -62,6 +63,8 @@ function tokenize(expr, context = {}) {
     prev.type === "Operator" ||
     prev.type === "UnaryOperator" ||
     (prev.type === "Parenthesis" && prev.value !== ")") ||
+    prev.type === "ArrayStart" ||
+    prev.type === "Semicolon" ||
     prev.type === "Comma" ||
     prev.type === "Ternary";
 
@@ -110,6 +113,29 @@ function tokenize(expr, context = {}) {
       return;
     }
 
+    // IMAGINARY NUMBER
+    if (/^[+-]?(\d+(\.\d+)?|\.\d+)(e[+-]?\d+)?i$/i.test(current)) {
+      tokens.push({
+        type: "ImaginaryLiteral",
+        value: parseFloat(current.slice(0, -1)),
+        pos: index
+      });
+      current = "";
+      return;
+    }
+
+    // IMAGINARY UNIT
+    if (/^[+-]?i$/i.test(current)) {
+      const sign = current[0] === "-" ? -1 : 1;
+      tokens.push({
+        type: "ImaginaryLiteral",
+        value: sign,
+        pos: index
+      });
+      current = "";
+      return;
+    }
+
     // NUMBER + UNIT
     const numUnit = current.match(/^([+-]?\d+(\.\d+)?)([a-zA-Z]+)$/);
     if (numUnit) {
@@ -132,7 +158,7 @@ function tokenize(expr, context = {}) {
       const {prevWord} = getContext(expr, index);
       if (nextChar !== "(") {
         if (prevWord){
-          if (!isNaN(parseFloat(prevWord)) || prevWord === "to") {
+          if (!isNaN(parseFloat(prevWord)) || prevWord === "to" || prevWord === "in") {
             // console.log("Context for unit detection:", {current, prevWord, nextChar});
 
             tokens.push({ type: "Unit", value: current, pos: index });
@@ -171,7 +197,7 @@ function tokenize(expr, context = {}) {
     let char = expr[i];
     let next = expr[i + 1];
 
-    // ================= COMMENTS =================
+    // comments
     if (char === "/" && next === "/") {
       while (i < expr.length && expr[i] !== "\n") i++;
       continue;
@@ -184,7 +210,7 @@ function tokenize(expr, context = {}) {
       continue;
     }
 
-    // ================= STRING =================
+    // string
     if (`"'`.includes(char)) {
       if (!quote) {
         quote = char;
@@ -213,7 +239,7 @@ function tokenize(expr, context = {}) {
       continue;
     }
 
-    // ================= MULTI OPERATORS =================
+    // multi operators
     const twoChar = char + next;
     if (multiOps.includes(twoChar)) {
       flushCurrent(char, i);
@@ -229,6 +255,7 @@ function tokenize(expr, context = {}) {
 
     // only treat ':' as ternary IF previous token was '?'
     if (char === ":") {
+      flushCurrent(char, i);
       const prev = tokens[tokens.length - 1];
 
       if (prev && prev.type === "Ternary") {
@@ -239,14 +266,19 @@ function tokenize(expr, context = {}) {
       continue;
     }
 
-    // ================= DOT =================
+    // dot
+    if (char === "." && /\d/.test(current) && /\d/.test(next)) {
+      current += char;
+      continue;
+    }
+
     if (char === ".") {
       flushCurrent(char, i);
       tokens.push({ type: "Dot", pos: i });
       continue;
     }
 
-    // ================= OPERATORS =================
+    // operators
     if (operators.includes(char)) {
       flushCurrent(char, i);
 
@@ -259,14 +291,14 @@ function tokenize(expr, context = {}) {
       continue;
     }
 
-    // ================= PAREN =================
+    // parenthesis
     if (parentheses.includes(char)) {
       flushCurrent(char, i);
       tokens.push({ type: "Parenthesis", value: char, pos: i });
       continue;
     }
 
-    // ================= ARRAY =================
+    // array
     if (char === "[") {
       flushCurrent(char, i);
       tokens.push({ type: "ArrayStart", pos: i });
@@ -293,20 +325,27 @@ function tokenize(expr, context = {}) {
       continue;
     }
 
-    // ================= COMMA =================
+    // comma
     if (char === comma) {
       flushCurrent(char, i);
       tokens.push({ type: "Comma", pos: i });
       continue;
     }
 
-    // ================= SPACE =================
+    // semicolon
+    if (char === semicolon) {
+      flushCurrent(char, i);
+      tokens.push({ type: "Semicolon", pos: i });
+      continue;
+    }
+
+    // space
     if (char === " ") {
       flushCurrent(next, i);
       continue;
     }
 
-    // ================= BUILD =================
+    // build token
     current += char;
 
     if (i === expr.length - 1) {
@@ -316,7 +355,7 @@ function tokenize(expr, context = {}) {
 
   if (quote) throw new Error("Unclosed string literal");
 
-  // ================= MERGE NUMBER + UNIT =================
+  // merge number + unit
   const merged = [];
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i];
@@ -336,7 +375,7 @@ function tokenize(expr, context = {}) {
     merged.push(t);
   }
 
-  // ================= IMPLICIT MULTIPLICATION =================
+  // implicit multiplication
   const final = [];
   for (let i = 0; i < merged.length; i++) {
     const a = merged[i];
@@ -351,8 +390,7 @@ function tokenize(expr, context = {}) {
           (a.type === "Parenthesis" && a.value === ")") ||
           a.type === "ArrayEnd") &&
         (["Identifier", "Function"].includes(b.type) ||
-          (b.type === "Parenthesis" && b.value === "(") ||
-          b.type === "ArrayStart")
+          (b.type === "Parenthesis" && b.value === "("))
       )
     ) {
       final.push({ type: "Operator", value: "*", implicit: true });
@@ -372,6 +410,219 @@ function evaluateAST(node, context = {}) {
   const isUnitObj = (v) =>
     v && typeof v === "object" && "value" in v && "unit" in v;
 
+  const isComplex = (v) =>
+    v && typeof v === "object" && "re" in v && "im" in v;
+
+  const isSliceNode = (v) =>
+    v && typeof v === "object" && v.type === "SliceExpression";
+
+  const isMatrix = (v) =>
+    Array.isArray(v) && v.length > 0 && v.every(Array.isArray);
+
+  const normalizeMatrix = (value) => {
+    if (isMatrix(value)) return value.map((row) => [...row]);
+    if (Array.isArray(value)) return [value];
+    throw new Error("Expected matrix-compatible value");
+  };
+
+  const toOneBasedIndex = (value) => {
+    if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+      throw new Error("Matrix indices must be positive integers");
+    }
+
+    return value - 1;
+  };
+
+  const resolveSelector = (selector, contextLength) => {
+    if (isSliceNode(selector)) {
+      const startValue = selector.start == null ? 1 : evaluateAST(selector.start, context);
+      const endValue = selector.end == null ? contextLength : evaluateAST(selector.end, context);
+      const start = toOneBasedIndex(startValue);
+      const end = toOneBasedIndex(endValue);
+
+      if (end < start) {
+        return [];
+      }
+
+      const result = [];
+      for (let index = start; index <= end; index++) {
+        result.push(index);
+      }
+      return result;
+    }
+
+    return [toOneBasedIndex(evaluateAST(selector, context))];
+  };
+
+  const indexMatrix = (matrix, selectors) => {
+    const target = normalizeMatrix(matrix);
+
+    if (selectors.length === 1) {
+      const rowIndexes = resolveSelector(selectors[0], target.length);
+      const rows = rowIndexes.map((rowIndex) => {
+        if (rowIndex >= target.length) {
+          throw new Error("Row index out of range");
+        }
+        return [...target[rowIndex]];
+      });
+
+      return rows.length === 1 ? rows[0] : rows;
+    }
+
+    const rowIndexes = resolveSelector(selectors[0], target.length);
+    const colIndexes = resolveSelector(selectors[1], target[0]?.length || 0);
+
+    const values = rowIndexes.map((rowIndex) => {
+      if (rowIndex >= target.length) {
+        throw new Error("Row index out of range");
+      }
+
+      return colIndexes.map((colIndex) => {
+        if (colIndex >= target[rowIndex].length) {
+          throw new Error("Column index out of range");
+        }
+        return target[rowIndex][colIndex];
+      });
+    });
+
+    if (rowIndexes.length === 1 && colIndexes.length === 1) {
+      return values[0][0];
+    }
+
+    if (rowIndexes.length === 1) {
+      return values[0];
+    }
+
+    if (colIndexes.length === 1) {
+      return values.map((row) => [row[0]]);
+    }
+
+    return values;
+  };
+
+  const assignMatrixIndex = (matrix, selectors, value) => {
+    const target = isMatrix(matrix)
+      ? matrix.map((row) => [...row])
+      : Array.isArray(matrix)
+        ? [matrix.slice()]
+        : [];
+
+    const rowSelector = selectors[0];
+    const colSelector = selectors[1];
+
+    if (!rowSelector) {
+      throw new Error("Matrix assignment requires at least one index");
+    }
+
+    const rowContextLength = Math.max(target.length, 1);
+    const rowIndexes = resolveSelector(rowSelector, rowContextLength);
+
+    if (selectors.length === 1) {
+      const rowsValue = isMatrix(value) ? value : normalizeMatrix(value);
+
+      if (rowsValue.length !== rowIndexes.length) {
+        throw new Error("Assigned row count does not match slice");
+      }
+
+      rowIndexes.forEach((rowIndex, index) => {
+        target[rowIndex] = [...rowsValue[index]];
+      });
+
+      return {
+        updatedMatrix: target,
+        selectionResult: rowIndexes.length === 1 ? [target[rowIndexes[0]]] : rowIndexes.map((rowIndex) => [target[rowIndex]])
+      };
+    }
+
+    const maxCols = Math.max(...target.map((row) => row.length), 0, 1);
+    const colIndexes = resolveSelector(colSelector, maxCols);
+    const normalizedValue = normalizeMatrix(value);
+
+    if (normalizedValue.length !== rowIndexes.length) {
+      throw new Error("Assigned row count does not match matrix slice");
+    }
+
+    normalizedValue.forEach((row, rowOffset) => {
+      if (row.length !== colIndexes.length) {
+        throw new Error("Assigned column count does not match matrix slice");
+      }
+    });
+
+    rowIndexes.forEach((rowIndex, rowOffset) => {
+      if (!target[rowIndex]) {
+        target[rowIndex] = [];
+      }
+
+      colIndexes.forEach((colIndex, colOffset) => {
+        target[rowIndex][colIndex] = normalizedValue[rowOffset][colOffset];
+      });
+    });
+
+    return {
+      updatedMatrix: target,
+      selectionResult: rowIndexes.length === 1
+        ? [colIndexes.map((colIndex) => target[rowIndexes[0]][colIndex])]
+        : rowIndexes.map((rowIndex) => colIndexes.map((colIndex) => target[rowIndex][colIndex]))
+    };
+  };
+
+  const multiplyMatrices = (left, right) => {
+    const a = normalizeMatrix(left);
+    const b = normalizeMatrix(right);
+
+    if (a[0].length !== b.length) {
+      throw new Error("Matrix dimensions do not allow multiplication");
+    }
+
+    return a.map((row) =>
+      b[0].map((_, colIndex) =>
+        row.reduce((sum, value, rowIndex) => sum + (value * b[rowIndex][colIndex]), 0)
+      )
+    );
+  };
+
+  const toComplex = (value) => {
+    if (isComplex(value)) return value;
+    if (typeof value === "number") return { re: value, im: 0 };
+    throw new Error("Complex arithmetic only supports numbers");
+  };
+
+  const fromImaginary = (value) => ({ re: 0, im: value });
+
+  const simplifyComplex = (value) =>
+    value.im === 0 ? value.re : value;
+
+  const evalComplexBinary = (operator, left, right) => {
+    const a = toComplex(left);
+    const b = toComplex(right);
+
+    switch (operator) {
+      case "+":
+        return simplifyComplex({ re: a.re + b.re, im: a.im + b.im });
+      case "-":
+        return simplifyComplex({ re: a.re - b.re, im: a.im - b.im });
+      case "*":
+        return simplifyComplex({
+          re: (a.re * b.re) - (a.im * b.im),
+          im: (a.re * b.im) + (a.im * b.re)
+        });
+      case "/": {
+        const denominator = (b.re ** 2) + (b.im ** 2);
+
+        if (denominator === 0) {
+          throw new Error("Division by zero");
+        }
+
+        return simplifyComplex({
+          re: ((a.re * b.re) + (a.im * b.im)) / denominator,
+          im: ((a.im * b.re) - (a.re * b.im)) / denominator
+        });
+      }
+      default:
+        throw new Error(`Operator ${operator} is not supported for complex numbers`);
+    }
+  };
+
   /* ================= EVALUATOR ================= */
 
   switch (node.type) {
@@ -379,6 +630,9 @@ function evaluateAST(node, context = {}) {
     /* ===== LITERAL ===== */
     case "Literal":
       return node.value;
+
+    case "ImaginaryLiteral":
+      return fromImaginary(node.value);
 
     case "UnitLiteral":
       return { value: node.value, unit: node.unit };
@@ -391,11 +645,19 @@ function evaluateAST(node, context = {}) {
     case "AssignmentExpression": {
       const value = evaluateAST(node.right, context);
 
-      if (node.left.type !== "Identifier") {
-        throw new Error("Invalid assignment target");
+      if (node.left.type === "Identifier") {
+        vars.set(node.left.name, value);
+        return value;
       }
 
-      return vars.set(node.left.name, value);
+      if (node.left.type === "IndexExpression" && node.left.object.type === "Identifier") {
+        const currentValue = vars.get(node.left.object.name);
+        const assigned = assignMatrixIndex(currentValue, node.left.selectors, value);
+        vars.set(node.left.object.name, assigned.updatedMatrix);
+        return assigned.selectionResult;
+      }
+
+      throw new Error("Invalid assignment target");
     }
 
     /* ===== UNARY ===== */
@@ -403,7 +665,10 @@ function evaluateAST(node, context = {}) {
       const val = evaluateAST(node.argument, context);
 
       switch (node.operator) {
-        case "-": return -val;
+        case "-":
+          return isComplex(val)
+            ? simplifyComplex({ re: -val.re, im: -val.im })
+            : -val;
         case "!": return !val;
       }
 
@@ -421,6 +686,14 @@ function evaluateAST(node, context = {}) {
         if (!units) throw new Error("Unit system not available");
 
         return units.compute(node.operator, left, right);
+      }
+
+      if (node.operator === "*" && (Array.isArray(left) || Array.isArray(right))) {
+        return multiplyMatrices(left, right);
+      }
+
+      if (isComplex(left) || isComplex(right)) {
+        return evalComplexBinary(node.operator, left, right);
       }
 
       switch (node.operator) {
@@ -517,6 +790,11 @@ function evaluateAST(node, context = {}) {
     /* ===== ARRAY ===== */
     case "ArrayExpression":
       return node.elements.map(el => evaluateAST(el, context));
+
+    case "IndexExpression": {
+      const target = evaluateAST(node.object, context);
+      return indexMatrix(target, node.selectors);
+    }
 
     /* ===== OBJECT ===== */
     case "ObjectExpression": {
@@ -689,7 +967,7 @@ function createUnitsStore(initial = {}) {
 
       const result = value * (from.data.value / to.data.value);
 
-      return `${result} ${to.key}`;
+      return { value: result, unit: to.key };
     }
 
   // ---------- Public API ----------
@@ -715,7 +993,8 @@ function createUnitsStore(initial = {}) {
     },
     compute(op, left, right) {
 
-      const isUnit = (v) => v && typeof v === "object" && "unit" in v;
+      const isUnit = (v) =>
+        v && typeof v === "object" && "value" in v && "unit" in v;
 
       const apply = (a, b) => {
         switch (op) {
@@ -745,25 +1024,25 @@ function createUnitsStore(initial = {}) {
 
         // multiplication/division produce compound units
         if (op === "*") {
-          return `${result} ${left.unit}`;
+          return { value: result, unit: left.unit };
         }
 
         if (op === "/") {
-          return `${result} ${left.unit}`;
+          return { value: result, unit: left.unit };
         }
 
         if (op === "^") {
-          return `${result} ${left.unit}`;
+          return { value: result, unit: left.unit };
         }
 
-        return `${result} ${left.unit}`;
+        return { value: result, unit: left.unit };
       }
 
       // ================= LEFT UNIT =================
       if (isUnit(left) && !isUnit(right)) {
         const result = apply(left.value, right);
 
-        return `${result} ${left.unit}`;
+        return { value: result, unit: left.unit };
       }
 
       // ================= RIGHT UNIT =================
@@ -771,10 +1050,10 @@ function createUnitsStore(initial = {}) {
         const result = apply(left, right.value);
 
         if (op === "/") {
-          return `${result} ${right.unit}`;
+          return { value: result, unit: right.unit };
         }
 
-        return `${result} ${right.unit}`;
+        return { value: result, unit: right.unit };
       }
 
       // ================= NORMAL =================
@@ -1150,6 +1429,159 @@ function createFunctionRegistry(initial = {}) {
   };
 }
 
+function validateSquareMatrix(matrix) {
+  if (!Array.isArray(matrix) || matrix.length === 0) {
+    throw new Error("det() expects a non-empty matrix");
+  }
+
+  if (!matrix.every(Array.isArray)) {
+    throw new Error("det() expects a 2D matrix");
+  }
+
+  const size = matrix.length;
+  if (!matrix.every((row) => row.length === size)) {
+    throw new Error("det() expects a square matrix");
+  }
+
+  for (const row of matrix) {
+    for (const value of row) {
+      if (typeof value !== "number" && typeof value !== "bigint") {
+        throw new Error("det() matrix values must be numeric");
+      }
+    }
+  }
+}
+
+function determinant(matrix) {
+  validateSquareMatrix(matrix);
+
+  if (matrix.length === 1) {
+    return matrix[0][0];
+  }
+
+  if (matrix.length === 2) {
+    return (matrix[0][0] * matrix[1][1]) - (matrix[0][1] * matrix[1][0]);
+  }
+
+  return matrix[0].reduce((sum, value, columnIndex) => {
+    const minor = matrix.slice(1).map((row) =>
+      row.filter((_, index) => index !== columnIndex)
+    );
+    const cofactor = columnIndex % 2 === 0 ? value : -value;
+    return sum + (cofactor * determinant(minor));
+  }, 0);
+}
+
+function splitTerms(expression) {
+  const normalized = expression.replace(/\s+/g, "");
+  if (!normalized) {
+    return [];
+  }
+
+  return normalized
+    .replace(/-/g, "+-")
+    .split("+")
+    .filter(Boolean);
+}
+
+function parsePolynomial(expression, variable) {
+  const terms = splitTerms(expression);
+  const coefficients = new Map();
+
+  for (const term of terms) {
+    if (term.includes(variable)) {
+      const [rawCoeff, rawPower] = term.split(variable);
+      let coefficient;
+
+      if (rawCoeff === "" || rawCoeff === "+") coefficient = 1;
+      else if (rawCoeff === "-") coefficient = -1;
+      else {
+        const cleaned = rawCoeff.endsWith("*") ? rawCoeff.slice(0, -1) : rawCoeff;
+        coefficient = Number(cleaned);
+      }
+
+      if (!Number.isFinite(coefficient)) {
+        throw new Error("Unsupported algebra term");
+      }
+
+      let power = 1;
+      if (rawPower) {
+        if (!rawPower.startsWith("^")) {
+          throw new Error("Unsupported algebra term");
+        }
+
+        power = Number(rawPower.slice(1));
+      }
+
+      if (!Number.isInteger(power) || power < 0) {
+        throw new Error("Only non-negative integer powers are supported");
+      }
+
+      coefficients.set(power, (coefficients.get(power) || 0) + coefficient);
+    } else {
+      const constant = Number(term);
+      if (!Number.isFinite(constant)) {
+        throw new Error("Unsupported algebra term");
+      }
+      coefficients.set(0, (coefficients.get(0) || 0) + constant);
+    }
+  }
+
+  return coefficients;
+}
+
+function formatPolynomial(coefficients, variable) {
+  const ordered = [...coefficients.entries()]
+    .filter(([, coefficient]) => coefficient !== 0)
+    .sort((a, b) => b[0] - a[0]);
+
+  if (!ordered.length) {
+    return "0";
+  }
+
+  return ordered.map(([power, coefficient], index) => {
+    const negative = coefficient < 0;
+    const absCoeff = Math.abs(coefficient);
+    let body;
+
+    if (power === 0) {
+      body = `${absCoeff}`;
+    } else if (power === 1) {
+      body = absCoeff === 1 ? variable : `${absCoeff} * ${variable}`;
+    } else {
+      body = absCoeff === 1
+        ? `${variable}^${power}`
+        : `${absCoeff} * ${variable}^${power}`;
+    }
+
+    if (index === 0) {
+      return negative ? `-${body}` : body;
+    }
+
+    return negative ? `- ${body}` : `+ ${body}`;
+  }).join(" ");
+}
+
+function simplifyExpression(expression) {
+  const compact = expression.replace(/\s+/g, "");
+  const variableMatch = compact.match(/[a-zA-Z]+/);
+  const variable = variableMatch?.[0] || "x";
+  const coefficients = parsePolynomial(expression, variable);
+  return formatPolynomial(coefficients, variable);
+}
+
+function derivativeExpression(expression, variable) {
+  const coefficients = parsePolynomial(expression, variable);
+  const derived = new Map();
+
+  for (const [power, coefficient] of coefficients.entries()) {
+    if (power === 0) continue;
+    derived.set(power - 1, (derived.get(power - 1) || 0) + (coefficient * power));
+  }
+
+  return formatPolynomial(derived, variable);
+}
+
 const internalFunctions = {
   max: (...args) => {
     if (!args.length) throw new Error("max() requires arguments");
@@ -1175,6 +1607,19 @@ const internalFunctions = {
   },
 
   pow: (a, b) => a ** b,
+  det: (matrix) => determinant(matrix),
+  simplify: (expression) => {
+    if (typeof expression !== "string") {
+      throw new Error("simplify() expects an expression string");
+    }
+    return simplifyExpression(expression);
+  },
+  derivative: (expression, variable = "x") => {
+    if (typeof expression !== "string" || typeof variable !== "string") {
+      throw new Error("derivative() expects expression and variable strings");
+    }
+    return derivativeExpression(expression, variable);
+  },
 
   /* ================= TRIGONOMETRY ================= */
 
@@ -1273,6 +1718,30 @@ function buildAST(tokens) {
     return true;
   };
 
+  const parseSliceOrIndex = () => {
+    let start = null;
+
+    if (!(peek()?.type === "Colon" || peek()?.type === "Comma" || peek()?.type === "ArrayEnd")) {
+      start = parseExpression();
+    }
+
+    if (match("Colon")) {
+      let end = null;
+
+      if (!(peek()?.type === "Comma" || peek()?.type === "ArrayEnd")) {
+        end = parseExpression();
+      }
+
+      return {
+        type: "SliceExpression",
+        start,
+        end
+      };
+    }
+
+    return start;
+  };
+
   /* ================= PRIMARY ================= */
   function parsePrimary() {
     const token = consume();
@@ -1284,6 +1753,9 @@ function buildAST(tokens) {
       case "Boolean":
       case "String":
         return { type: "Literal", value: token.value };
+
+      case "ImaginaryLiteral":
+        return { type: "ImaginaryLiteral", value: token.value };
 
       case "NumberWithUnit":
         return {
@@ -1313,19 +1785,47 @@ function buildAST(tokens) {
         }
         
       case "ArrayStart": {
-        const elements = [];
+        const rows = [];
+        let currentRow = [];
 
         if (!match("ArrayEnd")) {
-          do {
-            elements.push(parseExpression());
-          } while (match("Comma"));
+          while (true) {
+            currentRow.push(parseExpression());
 
-          if (!match("ArrayEnd")) {
-            throw new Error(`Expected ']' at ${current}`);
+            if (match("Comma")) {
+              continue;
+            }
+
+            if (match("Semicolon")) {
+              rows.push(currentRow);
+              currentRow = [];
+              continue;
+            }
+
+            if (match("ArrayEnd")) {
+              rows.push(currentRow);
+              break;
+            }
+
+            throw new Error(`Expected ',', ';', or ']' at ${current}`);
           }
         }
 
-        return { type: "ArrayExpression", elements };
+        if (!rows.length) {
+          return { type: "ArrayExpression", elements: [] };
+        }
+
+        if (rows.length === 1) {
+          return { type: "ArrayExpression", elements: rows[0] };
+        }
+
+        return {
+          type: "ArrayExpression",
+          elements: rows.map((elements) => ({
+            type: "ArrayExpression",
+            elements
+          }))
+        };
       }
 
       case "BlockStart": {
@@ -1372,6 +1872,27 @@ function buildAST(tokens) {
     let object = parsePrimary();
 
     while (true) {
+      if (match("ArrayStart")) {
+        const selectors = [];
+
+        if (!match("ArrayEnd")) {
+          do {
+            selectors.push(parseSliceOrIndex());
+          } while (match("Comma"));
+
+          if (!match("ArrayEnd")) {
+            throw new Error(`Expected ']' at ${current}`);
+          }
+        }
+
+        object = {
+          type: "IndexExpression",
+          object,
+          selectors
+        };
+        continue;
+      }
+
       if (match("Dot")) {
         const property = consume();
 
@@ -1513,12 +2034,13 @@ function buildAST(tokens) {
   function parseUnitConversion() {
     let left = parseAddition();
 
-    // 🔥 KEY PART: detect "to"
-    if (match("Keyword", "to")) {
+    const nextKeyword = peek();
+    if (nextKeyword?.type === "Keyword" && ["to", "in"].includes(nextKeyword.value)) {
+      consume();
       const next = consume();
 
       if (!next || next.type !== "Unit") {
-        throw new Error("Expected unit after 'to'");
+        throw new Error(`Expected unit after '${nextKeyword.value}'`);
       }
 
       return {
@@ -1652,7 +2174,8 @@ function buildAST(tokens) {
 
       if (
         left.type !== "Identifier" &&
-        left.type !== "MemberExpression"
+        left.type !== "MemberExpression" &&
+        left.type !== "IndexExpression"
       ) {
         throw new Error("Invalid assignment target");
       }
@@ -1687,6 +2210,52 @@ function buildAST(tokens) {
 }
 
 //
+
+const isComplex = (value) =>
+    value && typeof value === "object" && "re" in value && "im" in value;
+
+const isUnitValue = (value) =>
+    value && typeof value === "object" && "value" in value && "unit" in value;
+
+const isMatrix = (value) =>
+    Array.isArray(value) && value.length > 0 && value.every(Array.isArray);
+
+const formatComplex = (value) => {
+    if (!isComplex(value)) return value;
+
+    const real = value.re;
+    const imaginary = Math.abs(value.im);
+    const sign = value.im < 0 ? "-" : "+";
+
+    if (real === 0) {
+        if (value.im === 1) return "i";
+        if (value.im === -1) return "-i";
+        return `${value.im}i`;
+    }
+
+    const imagPart = imaginary === 1 ? "i" : `${imaginary}i`;
+    return `${real} ${sign} ${imagPart}`;
+};
+
+const formatResult = (value) => {
+    if (isComplex(value)) {
+        return formatComplex(value);
+    }
+
+    if (isUnitValue(value)) {
+        return `${value.value} ${value.unit}`;
+    }
+
+    if (isMatrix(value)) {
+        return value.map((row) => row.join("\t")).join("\n");
+    }
+
+    if (Array.isArray(value)) {
+        return value.join("\n");
+    }
+
+    return value;
+};
 
 class exprify {
     constructor() {
@@ -1734,10 +2303,10 @@ class exprify {
 
     evaluate(expr) {
         const { ast } = this.parse(expr);
-        return evaluateAST(
+        return formatResult(evaluateAST(
             ast,
             this._createContext()
-        );
+        ));
     }
 
     compile(expr) {
@@ -1750,7 +2319,7 @@ class exprify {
         const compiledFn = (scope = {}) => {
             const baseContext = this._createContext();
             const scopedContext = baseContext.withScope(scope);
-            return evaluateAST(ast, scopedContext);
+            return formatResult(evaluateAST(ast, scopedContext));
         };
 
         this._cache.set(expr, compiledFn);

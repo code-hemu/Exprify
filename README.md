@@ -24,7 +24,7 @@ console.log(expr.evaluate("5 + 7 * 2"));
 ## Browser Usage
 
 ```html
-<script src="dist/exprify.js"></script>
+<script src="https://unpkg.com/exprify"></script>
 <script>
   const expr = new Exprify();
   console.log(expr.evaluate("(10 + 5) * 2"));
