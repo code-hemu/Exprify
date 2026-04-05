@@ -1,5 +1,5 @@
 /*!
-* exprify v1.0.1
+* exprify v1.0.2
 * (c) 2026 Nirmal Paul and other contributors
 *
 * Released under the GPL-3.0 License
